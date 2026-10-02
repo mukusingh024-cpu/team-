@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CarePoint | Hospital management</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Source+Serif+4:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <aside class="sidebar">
+    <a class="brand" href="{{ url_for('dashboard') }}"><span class="brand-mark">✚</span><span>carepoint<small>HOSPITAL</small></span></a>
+    <div class="nav-label">WORKSPACE</div>
+    <a class="nav-item active" href="{{ url_for('dashboard') }}">Overview</a>
+    <a class="nav-item" href="#patients">Patients <span class="nav-count">{{ total_patients }}</span></a>
+    <a class="nav-item" href="#appointments">Appointments</a>
+  </aside>
+
+  <main class="main-content">
+    <header class="topbar">
+      <div><div class="eyebrow">CLINIC DESK &nbsp; / &nbsp; {{ today_label }}</div><h1>Daily operations</h1></div>
+    </header>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}<div class="flash-stack">{% for category, message in messages %}<div class="flash {{ category }}">{{ message }}</div>{% endfor %}</div>{% endif %}
+    {% endwith %}
+
+    <section class="stats" aria-label="Hospital summary">
+      <article class="stat"><div class="stat-top"><span>Registered patients</span></div><strong>{{ total_patients }}</strong><small>All patient records</small></article>
+      <article class="stat"><div class="stat-top"><span>Appointments today</span></div><strong>{{ today_appointments }}</strong><small>Scheduled for {{ today }}</small></article>
+      <article class="stat"><div class="stat-top"><span>Departments in use</span></div><strong>{{ departments|length }}</strong><small>From appointment records</small></article>
+    </section>
+
+    <section class="workspace-grid">
+      <div class="panel patients-panel" id="patients">
+        <div class="panel-heading"><div><div class="eyebrow">DIRECTORY</div><h2>Patient register</h2></div><form class="search" method="get"><span>⌕</span><input name="search" value="{{ search }}" placeholder="Search patients" aria-label="Search patients"></form></div>
+        <div class="table-wrap"><table><thead><tr><th>Patient</th><th>Patient ID</th><th>Age / Gender</th><th>Phone</th><th>Visits</th></tr></thead><tbody>
+          {% for patient in patients %}<tr><td><div class="patient-cell"><span class="patient-avatar color-{{ loop.index0 % 4 }}">{{ patient.name[:1]|upper }}</span><strong>{{ patient.name }}</strong></div></td><td class="muted">PT-{{ '%04d'|format(patient.id) }}</td><td>{{ patient.age }} / {{ patient.gender }}</td><td>{{ patient.phone }}</td><td><span class="visit-count">{{ patient.visits }}</span></td></tr>
+          {% else %}<tr><td colspan="5" class="empty-state">{% if search %}No patients match “{{ search }}”.{% else %}No patients yet. Add the first patient using the form.{% endif %}</td></tr>{% endfor %}
+        </tbody></table></div>
+      </div>
+
+      <div class="panel form-panel">
+        <div class="panel-heading"><div><div class="eyebrow">NEW RECORD</div><h2>Add patient</h2></div><span class="heading-symbol">＋</span></div>
+        <form action="{{ url_for('add_patient') }}" method="post" class="form-grid">
+          <label class="wide">Full name<input name="name" placeholder="e.g. Ayesha Khan" required maxlength="100"></label>
+          <label>Age<input name="age" type="number" min="0" max="125" placeholder="Age" required></label>
+          <label>Gender<select name="gender" required><option value="" disabled selected>Select</option><option>Female</option><option>Male</option><option>Other</option></select></label>
+          <label class="wide">Phone number<input name="phone" type="tel" placeholder="0300 1234567" required maxlength="30"></label>
+          <button class="primary-button wide" type="submit">＋ &nbsp; Register patient</button>
+        </form>
+      </div>
+    </section>
+
+    <section class="lower-grid">
+      <div class="panel appointments-panel" id="appointments">
+        <div class="panel-heading"><div><div class="eyebrow">SCHEDULE</div><h2>Appointments</h2></div><span class="subtle-count">{{ appointments|length }} recent</span></div>
+        <div class="table-wrap"><table><thead><tr><th>Patient</th><th>Doctor / Department</th><th>Date &amp; time</th><th>Status</th><th></th></tr></thead><tbody>
+          {% for appointment in appointments %}<tr><td><strong>{{ appointment.patient_name }}</strong></td><td>{{ appointment.doctor }}<small class="table-subtext">{{ appointment.department }}</small></td><td>{{ appointment.appointment_date }}<small class="table-subtext">{{ appointment.appointment_time }}</small></td><td><span class="status {{ appointment.status|lower }}">{{ appointment.status }}</span></td><td>{% if appointment.status != 'Completed' %}<form action="{{ url_for('complete_appointment', appointment_id=appointment.id) }}" method="post"><button class="complete-button" title="Mark completed" aria-label="Mark appointment completed">✓</button></form>{% endif %}</td></tr>
+          {% else %}<tr><td colspan="5" class="empty-state">No appointments scheduled yet.</td></tr>{% endfor %}
+        </tbody></table></div>
+      </div>
+
+      <div class="panel form-panel appointment-form-panel">
+        <div class="panel-heading"><div><div class="eyebrow">PLAN A VISIT</div><h2>Book appointment</h2></div><span class="heading-symbol peach-symbol">▣</span></div>
+        {% if total_patients %}<form action="{{ url_for('add_appointment') }}" method="post" class="form-grid">
+          <label class="wide">Patient<select name="patient_id" required><option value="" disabled selected>Select patient</option>{% for patient in patient_options %}<option value="{{ patient.id }}">{{ patient.name }} · PT-{{ '%04d'|format(patient.id) }}</option>{% endfor %}</select></label>
+          <label>Doctor<input name="doctor" placeholder="Dr. name" required maxlength="100"></label>
+          <label>Department<input name="department" placeholder="e.g. Cardiology" required maxlength="80"></label>
+          <label>Date<input name="appointment_date" type="date" min="{{ today }}" required></label>
+          <label>Time<input name="appointment_time" type="time" required></label>
+          <button class="secondary-button wide" type="submit">Schedule appointment <span>→</span></button>
+        </form>{% else %}<div class="empty-callout">Register a patient before booking an appointment.</div>{% endif %}
+      </div>
+    </section>
+    <footer>CarePoint <span>·</span> Hospital operations</footer>
+  </main>
+</body>
+</html>
